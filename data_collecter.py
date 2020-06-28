@@ -41,6 +41,12 @@ while len(raw_data) > 0:
         for key, value in team.items():
             row[key] = value
             
+            #Adding number of awards
+            if key == 'key':
+                print('Gathering data from ' + team[key] + "...")
+                award_response = requests.get(api_url + '/team/' + team[key] + '/awards', headers=headers)
+                row['awards'] = len(award_response.json())
+            
         rows_list.append(row)
         
     #Iterates through the team list
@@ -109,7 +115,7 @@ for event_key in frc_event_keys:
                 
                 row['blue_score'] = blue_alliance['score']
                 for i in range(len(blue_alliance['team_keys'])):
-                    row['blue' + str(i)] = blue_alliance['team_keys'][i]
+                    row['blue_' + str(i)] = blue_alliance['team_keys'][i]
             else:
                 row[key] = match[key]
                 
@@ -120,3 +126,51 @@ match_df = pd.DataFrame(rows_list)
 
 #Saves matches dataframe to csv file
 match_df.to_csv('raw_frc_matches.csv')
+
+#%%
+#Collecting AWARDS data
+
+#Collect all frc team keys first
+frc_team_keys = []
+
+#Gets TEAM response from api
+response = requests.get(api_url + '/teams/0', headers=headers)
+raw_data = response.json()
+
+index = 0
+#Ensures the collection stops when there is no more teams left to gather
+while len(raw_data) > 0:
+    print("On page " + str(index) + "...")
+    
+    for team in raw_data:
+        frc_team_keys.append(team['key'])
+        
+    #Iterates through the team list
+    index += 1
+    response = requests.get(api_url + '/teams/' + str(index), headers=headers)
+    raw_data = response.json()
+    
+
+#Rows list is used to store all the data before its turned into a dataframe
+rows_list = []
+
+for team_key in frc_team_keys:
+    print('Getting awards for team ' + team_key)
+    
+    #Gets team response from api
+    response = requests.get(api_url + '/team/' + team_key + "/awards", headers=headers)
+    raw_data = response.json()
+    
+    for award in raw_data:
+        row = {}
+        
+        row['recipient'] = team_key
+        row['award_type'] = award['award_type']
+        row['event_key'] = award['event_key']
+        row['year'] = award['year']
+        
+        rows_list.append(row)
+
+award_df = pd.DataFrame(rows_list)
+
+award_df.to_csv('raw_award_data.csv')
