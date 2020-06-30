@@ -7,6 +7,7 @@ Created on Fri Jun 26 11:20:48 2020
 
 #%%
 import pandas as pd
+import re
 
 #%%
 
@@ -53,7 +54,12 @@ match_df = match_df.reset_index(drop=True)
 #%%
 
 #Format proper data and extract new data
-len_match = len(match_df)
+earliest_award_year, earliest_match_year = 1992, 2016
+
+#Add a year column since every year is a new game
+match_df['year'] = match_df['time'].apply(lambda x : x.year)
+#Data before 2014 is scarce
+match_df = match_df[match_df['year'] >= earliest_match_year]
 
 #Change winning alliance to red win
 match_df['red_won'] = 0
@@ -99,13 +105,12 @@ def add_event_awards(event_key):
         
 
 #Get initial award data
-earliest_award_year, earliest_match_year = 1992, 2006
 #Splitting the awards into match awards and other awards
 #Award types can be found here: https://github.com/the-blue-alliance/the-blue-alliance/blob/master/consts/award_type.py#L15
 match_award_types = [0, 1, 2, 10, 14]
     
 print('Initializing initial awards...')
-for year in range(1992, 2006):
+for year in range(earliest_award_year, earliest_match_year):
     print('Formatting awards for the year ' + str(year))
     year_award_df = awards_df[awards_df['year'] == year]
     
@@ -137,7 +142,7 @@ match_df['blue_avg_games_played'] = 0
 match_df['red_avg_age'] = 0
 match_df['blue_avg_age'] = 0
 
-match_df['red_avg_points_higher'] = 0
+match_df['red_points_ratio'] = 0
 match_df['red_avg_winrate_season'] = 0
 match_df['red_avg_games_played_season'] = 0
 match_df['blue_avg_winrate_season'] = 0
@@ -186,7 +191,7 @@ def get_avg_games_season(alliance):
         
     return total_games_played / len(alliance), total_winrate / len(alliance)
 
-def get_red_points_higher(red_alliance, blue_alliance):
+def get_red_points_ratio(red_alliance, blue_alliance):
     total_red_avgs = 0
     total_blue_avgs = 0
     
@@ -198,7 +203,10 @@ def get_red_points_higher(red_alliance, blue_alliance):
         if team_data[team_key]['games_played_season'] != 0:
             total_blue_avgs += (team_data[team_key]['points_season'] / team_data[team_key]['games_played_season'])
     
-    return 1 if total_red_avgs / len(red_alliance) > total_blue_avgs / len(blue_alliance) else 0
+    if total_blue_avgs == 0 or total_red_avgs == 0:
+        return 1
+    
+    return total_red_avgs / total_blue_avgs
 
 def reset_season():
     
@@ -209,6 +217,8 @@ def reset_season():
         
 
 curr_event = None
+len_match = len(match_df)
+match_df = match_df.reset_index(drop=True)
 for index, row in match_df.iterrows():
     
     print('Engineering features for match ' + str(index) + "/" + str(len_match))
@@ -242,7 +252,7 @@ for index, row in match_df.iterrows():
     row['red_avg_age'] = get_avg_age(red_alliance, row['time'].year)
     row['blue_avg_age'] = get_avg_age(blue_alliance, row['time'].year)
     
-    row['red_avg_points_higher'] = get_red_points_higher(red_alliance, blue_alliance)
+    row['red_points_ratio'] = get_red_points_ratio(red_alliance, blue_alliance)
     
     if row['red_won'] == 1:
         for team_key in red_alliance:
@@ -265,8 +275,18 @@ for index, row in match_df.iterrows():
     
     match_df.loc[index] = row
     
+match_df['avg_match_awards_diff'] = match_df['red_avg_match_awards'] - match_df['blue_avg_match_awards']
+match_df['avg_other_awards_diff'] = match_df['red_avg_other_awards'] - match_df['blue_avg_other_awards']
+match_df['avg_winrate_diff'] = match_df['red_avg_winrate'] - match_df['blue_avg_winrate']
+match_df['avg_games_played_diff'] = match_df['red_avg_games_played'] - match_df['blue_avg_games_played']
+match_df['avg_age_diff'] = match_df['red_avg_age'] - match_df['blue_avg_age']
+match_df['avg_winrate_diff_season'] = match_df['red_avg_winrate_season'] - match_df['blue_avg_winrate_season']
+match_df['avg_games_played_diff_season'] = match_df['red_avg_games_played_season'] - match_df['blue_avg_games_played_season']
+match_df['red_avg_points_higher'] = 0
+match_df.loc[match_df[match_df['red_points_ratio'] > 1].index, 'red_avg_points_higher'] = 1
+
 #%%
 #Get the use case dataframe and create a csv
-use_case_df = match_df.drop(columns=['red_score', 'red_0', 'red_1', 'red_2', 'blue_score', 'blue_0', 'blue_1', 'blue_2'])
+use_case_df = match_df
 use_case_df.to_csv('frc_use_case.csv')
 
