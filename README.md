@@ -1,1 +1,3 @@
-# FRC-Team-Rater
+# FRC-Match-Simulator
+## Abstract
+I create a predictive model that is 73% accurate when predicting the outcome of matches. I created this model from gathering data from https://www.thebluealliance.com/apidocs/v3 and storing that data into csvs. I then took that data, cleaned it up and manipulated the variables so I could engineer some features for our predictive model. After that was finished I used 4 different classification models which were Logistic Regression, Random Forest, Naive Bayes and K Nearest Neighbours. I compared the results and chose what seemed to be the best model out of the 4 which was the Logistic Regression model
