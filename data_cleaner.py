@@ -7,7 +7,6 @@ Created on Fri Jun 26 11:20:48 2020
 
 #%%
 import pandas as pd
-import re
 
 #%%
 
