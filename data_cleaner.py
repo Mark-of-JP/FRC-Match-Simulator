@@ -45,10 +45,8 @@ for i in range(3):
 
 #Change unix time to datetime
 match_df['time'] = pd.to_datetime(match_df['time'], unit='s')
+#Sort by time
 match_df.sort_values(by='time', inplace=True)
-
-#Reset the index
-match_df = match_df.reset_index(drop=True)
 
 #Get earliest years for awards and matches
 earliest_award_year, earliest_match_year = 1992, 2016
@@ -57,6 +55,12 @@ earliest_award_year, earliest_match_year = 1992, 2016
 match_df['year'] = match_df['time'].apply(lambda x : x.year)
 #Data before 2014 is scarce
 match_df = match_df[match_df['year'] >= earliest_match_year]
+
+#Drop all nan
+match_df = match_df.dropna()
+
+#Reset the index
+match_df = match_df.reset_index(drop=True)
 
 #%%
 
@@ -154,8 +158,10 @@ match_df['red_avg_age'] = 0
 match_df['blue_avg_age'] = 0
 
 match_df['red_points_ratio_season'] = 0
+match_df['red_points_avg'] = 0
 match_df['red_avg_winrate_season'] = 0
 match_df['red_avg_games_played_season'] = 0
+match_df['blue_points_avg'] = 0
 match_df['blue_avg_winrate_season'] = 0
 match_df['blue_avg_games_played_season'] = 0
 
@@ -194,25 +200,23 @@ def get_avg_age(alliance, current_year):
         
     return total_age / len(alliance)
 
-def get_red_points_ratio(red_alliance, blue_alliance, boundary='_season'):
-    total_red_avgs = 0
-    total_blue_avgs = 0
+def get_red_points_ratio(red_avg, blue_avg):
     
-    for team_key in red_alliance:
-        if team_data[team_key]['games_played' + boundary] == 0:
-            return 1
-        
-        total_red_avgs += (team_data[team_key]['points' + boundary] / team_data[team_key]['games_played' + boundary])
-            
-    for team_key in blue_alliance:
-        if team_data[team_key]['games_played' + boundary] == 0:
-            return 1
-        total_blue_avgs += (team_data[team_key]['points' + boundary] / team_data[team_key]['games_played' + boundary])
-    
-    if total_blue_avgs == 0 or total_red_avgs == 0:
+    if red_avg == -1 or blue_avg == -1:
         return 1
     
-    return total_red_avgs / total_blue_avgs
+    return red_avg / blue_avg
+
+def get_points_avg(alliance, boundary='_season'):
+    total_avgs = 0
+    
+    for team_key in alliance:
+        if team_data[team_key]['games_played' + boundary] == 0:
+            return -1
+        
+        total_avgs += (team_data[team_key]['points' + boundary] / team_data[team_key]['games_played' + boundary])
+        
+    return total_avgs / len(alliance)
 
 def get_elo_average(alliance):
     total_elo = 0
@@ -274,8 +278,10 @@ for index, row in match_df.iterrows():
     
     row['red_avg_games_played_season'], row['red_avg_winrate_season'] = get_avg_games(red_alliance, boundary='_season')
     row['blue_avg_games_played_season'], row['blue_avg_winrate_season'] = get_avg_games(blue_alliance, boundary='_season')
-
-    row['red_points_ratio_season'] = get_red_points_ratio(red_alliance, blue_alliance)
+    
+    row['red_points_avg'] = get_points_avg(red_alliance)
+    row['blue_points_avg'] = get_points_avg(blue_alliance)
+    row['red_points_ratio_season'] = get_red_points_ratio(row['red_points_avg'], row['blue_points_avg'])
     
     row['red_avg_age'] = get_avg_age(red_alliance, row['time'].year)
     row['blue_avg_age'] = get_avg_age(blue_alliance, row['time'].year)
