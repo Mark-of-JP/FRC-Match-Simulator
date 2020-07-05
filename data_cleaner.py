@@ -10,7 +10,7 @@ import pandas as pd
 
 #%%
 
-#Get the two dataframs
+#Get the three dataframs
 team_df = pd.read_csv('raw_frc_teams.csv')
 match_df = pd.read_csv('raw_frc_matches.csv')
 awards_df = pd.read_csv('raw_frc_awards.csv')
@@ -50,15 +50,17 @@ match_df.sort_values(by='time', inplace=True)
 #Reset the index
 match_df = match_df.reset_index(drop=True)
 
-#%%
-
-#Format proper data and extract new data
+#Get earliest years for awards and matches
 earliest_award_year, earliest_match_year = 1992, 2016
 
 #Add a year column since every year is a new game
 match_df['year'] = match_df['time'].apply(lambda x : x.year)
 #Data before 2014 is scarce
 match_df = match_df[match_df['year'] >= earliest_match_year]
+
+#%%
+
+#Format proper data and extract new data 
 
 #Change winning alliance to red win
 match_df['red_won'] = 0
@@ -87,6 +89,7 @@ def initialize_team(team_key):
     
     team_data[team_key]['rookie_year'] = team_df[team_df['key'] == team_key]['rookie_year'].item()
     
+#Adds awards to team from a certain event
 def add_event_awards(event_key):
     if event_key is None:
         return
@@ -133,7 +136,7 @@ event_groupby = match_df.groupby('event_key')
 for event_key, group in event_groupby:
     num_of_matches_per_event[event_key] = len(match_df[match_df.event_key == event_key])
             
-#Adding team data to matches
+#Adding team data to matches dataframe
 print('Adding team data to matches...')
 match_df['red_avg_match_awards'] = 0
 match_df['red_avg_other_awards'] = 0
@@ -160,6 +163,7 @@ match_df['red_elo'] = 0
 match_df['blue_elo'] = 0
 match_df['elo_prediction'] = 0
 
+#Functions for formatting data
 def get_avg_awards(alliance):
     total_match_awards = 0.0
     total_other_awards = 0.0
@@ -237,9 +241,11 @@ def reset_season():
         team_data[team_key]['games_won_season'] = 0
         team_data[team_key]['points_season'] = 0
 
+#Set up variables for iteration through the matches
 curr_year = None
 len_match = len(match_df)
 match_df = match_df.reset_index(drop=True)
+#Iterate/simulate each match
 for index, row in match_df.iterrows():
     
     print('Engineering features for match ' + str(index) + "/" + str(len_match))
@@ -259,6 +265,7 @@ for index, row in match_df.iterrows():
         if blue_alliance[i] not in team_data:
             initialize_team(blue_alliance[i])
         
+    #Add data to the datafram
     row['red_avg_match_awards'], row['red_avg_other_awards'] = get_avg_awards(red_alliance)
     row['blue_avg_match_awards'], row['blue_avg_other_awards'] = get_avg_awards(blue_alliance)
     
@@ -281,6 +288,7 @@ for index, row in match_df.iterrows():
     
     row['elo_prediction'] = red_pred
     
+    #Add match stats to the teams
     if row['red_won'] == 1:
         for team_key in red_alliance:
             team_data[team_key]['games_won_season'] += 1
@@ -311,6 +319,7 @@ for index, row in match_df.iterrows():
     
     match_df.loc[index] = row
     
+#Get differences for the features that require differences
 match_df['avg_match_awards_diff'] = match_df['red_avg_match_awards'] - match_df['blue_avg_match_awards']
 match_df['avg_other_awards_diff'] = match_df['red_avg_other_awards'] - match_df['blue_avg_other_awards']
 match_df['avg_winrate_diff'] = match_df['red_avg_winrate'] - match_df['blue_avg_winrate']
